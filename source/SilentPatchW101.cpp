@@ -12,6 +12,28 @@ namespace FixedFL
 	}
 }
 
+
+namespace AltEnterWindow
+{
+	static bool IsKeyJustDown(const uint32_t* keyArray, uint32_t key)
+	{
+		// No point in figuring out the exact meaning...
+		return (keyArray[(key >> 5) + 6] & (0x80000000 >> (key & 0x1F))) != 0;
+	}
+
+	static bool IsKeyDown(const uint32_t* keyArray, uint32_t key)
+	{
+		// No point in figuring out the exact meaning...
+		return (keyArray[key >> 5] & (0x80000000 >> (key & 0x1F))) != 0;
+	}
+
+	static BOOL __fastcall IsAltEnterDown_Wrap(const uint32_t* keyArray, void*, uint32_t /*key*/)
+	{
+		return IsKeyDown(keyArray, 0x9D) && IsKeyJustDown(keyArray, 0xA); // Alt + Enter
+	}
+}
+
+
 void OnInitializeHook()
 {
 	using namespace Memory::VP;
@@ -50,6 +72,18 @@ void OnInitializeHook()
 			subtractLastFrameTime.for_each_result([]( pattern_match match ) {
 				Nop( match.get<void>(), 6 );
 			});
+		}
+	}
+
+
+	// Remap Escape enabling windowed mode to Alt+Enter
+	{
+		using namespace AltEnterWindow;
+
+		auto isEscapeDown = pattern( "E8 ? ? ? ? 85 C0 74 4E A1 ? ? ? ? 83 C0 FD" );
+		if ( isEscapeDown.count(1).size() == 1 )
+		{
+			InjectHook( isEscapeDown.get_first<void>(), IsAltEnterDown_Wrap );
 		}
 	}
 }
