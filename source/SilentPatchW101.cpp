@@ -34,6 +34,19 @@ namespace AltEnterWindow
 }
 
 
+namespace FullscreenSwitch
+{
+	static BOOL __fastcall IsFullscreen_SwitchDisplayMode(void* pThis)
+	{
+		uint32_t& displayMode = *reinterpret_cast<uint32_t*>(reinterpret_cast<uintptr_t>(pThis) + 0x64);
+		displayMode = (displayMode+1) % 3;
+
+		// We need to return TRUE at all times as we want to be able to switch modes no matter what
+		return TRUE;
+	}
+}
+
+
 void OnInitializeHook()
 {
 	using namespace Memory::VP;
@@ -84,6 +97,21 @@ void OnInitializeHook()
 		if ( isEscapeDown.count(1).size() == 1 )
 		{
 			InjectHook( isEscapeDown.get_first<void>(), IsAltEnterDown_Wrap );
+		}
+	}
+
+
+	// Expand Escape/Alt+Enter with an option to switch back to fullscreen
+	{
+		using namespace FullscreenSwitch;
+
+		auto isFullscreen = pattern( "E8 ? ? ? ? 85 C0 74 28 83 7E 18 00" );
+		auto modeToSwitchTo = pattern( "C7 46 64 00 00 00 00 83 7E 18 00" );
+
+		if ( isFullscreen.count(1).size() == 1 && modeToSwitchTo.count(1).size() == 1 )
+		{
+			InjectHook( isFullscreen.get_first<void>(), IsFullscreen_SwitchDisplayMode );
+			Nop( modeToSwitchTo.get_first<void>(), 7 );
 		}
 	}
 }
