@@ -1,6 +1,14 @@
 #include "Utils/MemoryMgr.h"
 #include "Utils/Patterns.h"
 
+#include <Shlwapi.h>
+
+#pragma comment(lib, "Shlwapi.lib")
+
+wchar_t wcModulePath[MAX_PATH];
+static HMODULE hDLLModule;
+
+
 namespace FixedFL
 {
 	static int64_t* lastFrameProcessTime;
@@ -49,6 +57,9 @@ namespace FullscreenSwitch
 
 void OnInitializeHook()
 {
+	GetModuleFileNameW(hDLLModule, wcModulePath, _countof(wcModulePath) - 3); // Minus max required space for extension
+	PathRenameExtensionW(wcModulePath, L".ini");
+
 	using namespace Memory::VP;
 	using namespace hook;
 
@@ -114,4 +125,27 @@ void OnInitializeHook()
 			Nop( modeToSwitchTo.get_first<void>(), 7 );
 		}
 	}
+
+
+	// Disabled frame limiter
+	// Users should only do it if they use VSync or RTSS for limiting, though
+	if ( const int INIoption = GetPrivateProfileIntW(L"SilentPatch", L"NoFPSLimit", 0, wcModulePath); INIoption != 0 )
+	{
+		auto noFL = pattern( "3B C8 76 62" ).count(1);
+		if ( noFL.size() == 1 )
+		{
+			Patch<uint8_t>( noFL.get_first<void>( 2 ), 0xEB ); // jbe -> jmp
+		}
+	}
+}
+
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+{
+	UNREFERENCED_PARAMETER(lpvReserved);
+
+	if ( fdwReason == DLL_PROCESS_ATTACH )
+	{
+		hDLLModule = hinstDLL;
+	}
+	return TRUE;
 }
