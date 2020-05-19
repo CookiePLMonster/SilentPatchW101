@@ -3,6 +3,8 @@
 
 #include <Shlwapi.h>
 
+#include <string_view>
+
 #pragma comment(lib, "Shlwapi.lib")
 
 wchar_t wcModulePath[MAX_PATH];
@@ -51,6 +53,62 @@ namespace FullscreenSwitch
 
 		// We need to return TRUE at all times as we want to be able to switch modes no matter what
 		return TRUE;
+	}
+}
+
+
+namespace ShiftJISTexts
+{
+	std::wstring ShiftJISToWchar(std::string_view text)
+	{
+		std::wstring result;
+
+		const int count = MultiByteToWideChar(932, 0, text.data(), text.size(), nullptr, 0);
+		if ( count != 0 )
+		{
+			result.resize(count);
+			MultiByteToWideChar(932, 0, text.data(), text.size(), result.data(), count);
+		}
+
+		return result;
+	}
+
+	int WINAPI MessageBoxJIS(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)
+	{
+		return MessageBoxW(hWnd, ShiftJISToWchar(lpText).c_str(), ShiftJISToWchar(lpCaption).c_str(), uType);
+	}
+
+	static void RedirectImports()
+	{
+		// Redirects:
+		// MessageBoxA -> MessageBoxJIS
+
+		const DWORD_PTR instance = reinterpret_cast<DWORD_PTR>(GetModuleHandle(nullptr));
+		const PIMAGE_NT_HEADERS ntHeader = reinterpret_cast<PIMAGE_NT_HEADERS>(instance + reinterpret_cast<PIMAGE_DOS_HEADER>(instance)->e_lfanew);
+
+		// Find IAT
+		PIMAGE_IMPORT_DESCRIPTOR pImports = reinterpret_cast<PIMAGE_IMPORT_DESCRIPTOR>(instance + ntHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+
+		for ( ; pImports->Name != 0; pImports++ )
+		{
+			if ( _stricmp(reinterpret_cast<const char*>(instance + pImports->Name), "user32.dll") == 0 )
+			{
+				assert ( pImports->OriginalFirstThunk != 0 );
+
+				const PIMAGE_THUNK_DATA pFunctions = reinterpret_cast<PIMAGE_THUNK_DATA>(instance + pImports->OriginalFirstThunk);
+
+				for ( ptrdiff_t j = 0; pFunctions[j].u1.AddressOfData != 0; j++ )
+				{
+					if ( strcmp(reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(instance + pFunctions[j].u1.AddressOfData)->Name, "MessageBoxA") == 0 )
+					{
+						void** pAddress = reinterpret_cast<void**>(instance + pImports->FirstThunk) + j;
+						*pAddress = MessageBoxJIS;
+						return;
+					}
+				}
+				
+			}
+		}
 	}
 }
 
@@ -137,6 +195,10 @@ void OnInitializeHook()
 			Patch<uint8_t>( noFL.get_first<void>( 2 ), 0xEB ); // jbe -> jmp
 		}
 	}
+
+
+	// Convert Shift-JIS texts to Unicode
+	ShiftJISTexts::RedirectImports();
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
