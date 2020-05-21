@@ -4,5 +4,5 @@ defines {
     "rsc_RevisionID=1",
     "rsc_BuildID=0",
     "rsc_Copyright=\"2020\"",
-    "rsc_UpdateURL=\"RELEASE URL\""
+    "rsc_UpdateURL=\"https://github.com/CookiePLMonster/SilentPatchW101/releases\""
 }
