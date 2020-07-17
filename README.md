@@ -14,3 +14,8 @@ in which case SilentPatch will skip them.
   instead of only putting the game in the windowed mode.
 * 60 FPS cap can now optionally be disabled from the INI file. **WARNING: The game does not support high frame rates and it will speed up,**
   **so use this option ONLY if you use VSync or external frame limiters (like RTSS).**
+* Error messages now display properly on PC's with a non-Japanese locale.
+* Original OST from the Wii U version of the game can now be enabled from the INI file.
+
+## Credits
+* [Banz99](https://github.com/Banz99) - OriginalOST feature
