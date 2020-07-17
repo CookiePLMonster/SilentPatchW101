@@ -195,7 +195,18 @@ void OnInitializeHook()
 			Patch<uint8_t>( noFL.get_first<void>( 2 ), 0xEB ); // jbe -> jmp
 		}
 	}
-
+	
+	
+	// Change OST
+	// This works by changing the BGM_304_SwitchtoLive in .rdata to BGM_304_SwitchtoOrig
+	if (const int INIoption = GetPrivateProfileIntW(L"SilentPatch", L"OriginalOst", 0, wcModulePath); INIoption == 1)
+	{
+		auto switchToLive = pattern("42 47 4D 5F 33 30 34 5F 53 77 69 74 63 68 74 6F 4C 69 76 65").count(1); //BGM_304_SwitchtoLive
+		if (switchToLive.size() == 1)
+		{
+			Patch<uint32_t>(switchToLive.get_first<void>(0x10), 0x6769724F); //"Orig" ASCII in little endian
+		}
+	}
 
 	// Convert Shift-JIS texts to Unicode
 	ShiftJISTexts::RedirectImports();
